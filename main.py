@@ -60,7 +60,7 @@ def download():
     ydl_opts = {
         'outtmpl': filepath,
         # 🔥 SAFEST HD FORMAT
-        'format': 'bestvideo[height<=1080]+bestaudio/best',
+        'format': 'bestvideo[height=1080]+bestaudio/bestvideo[height<=1080]+bestaudio/best'
         'merge_output_format': 'mp4',
         'quiet': True
     }
