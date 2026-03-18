@@ -5,6 +5,7 @@ import os
 import uuid
 import threading
 import time
+import random
 
 app = Flask(__name__)
 CORS(app)
@@ -12,8 +13,11 @@ CORS(app)
 DOWNLOAD_DIR = "downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
-# 🍪 COOKIE FILE
-COOKIE_FILE = os.path.join(os.path.dirname(__file__), "cookies.txt")
+# 🔥 MULTIPLE COOKIES
+COOKIE_FILES = [
+    "cookies.txt",
+    "cookies2.txt",
+]
 
 # 🧹 AUTO DELETE
 def delete_file_later(path):
@@ -29,21 +33,22 @@ def home():
     return jsonify({"status": "YTSave API running 🚀"})
 
 
-# 🎯 INFO (FAST)
+# 🎯 INFO
 @app.route('/info')
 def info():
     url = request.args.get('url')
 
     try:
-        # shorts fix
         if "shorts" in url:
             url = url.replace("shorts/", "watch?v=")
+
+        cookie_file = random.choice(COOKIE_FILES)
 
         ydl_opts = {
             'quiet': True,
             'skip_download': True,
             'extract_flat': True,
-            'cookiefile': COOKIE_FILE
+            'cookiefile': cookie_file
         }
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -59,29 +64,39 @@ def info():
         return jsonify({"error": str(e)}), 500
 
 
-# 📥 DOWNLOAD (FINAL FIXED)
+# 📥 DOWNLOAD
 @app.route('/download')
 def download():
     url = request.args.get('url')
 
     try:
-        # shorts fix
         if "shorts" in url:
             url = url.replace("shorts/", "watch?v=")
 
         file_id = str(uuid.uuid4())
         filepath = os.path.join(DOWNLOAD_DIR, f"{file_id}.mp4")
 
+        cookie_file = random.choice(COOKIE_FILES)
+
         ydl_opts = {
             'outtmpl': filepath,
-            'format': 'bv*+ba/best',   # 🔥 FINAL FIX
+            'format': 'bv*+ba/best',
             'merge_output_format': 'mp4',
             'quiet': True,
-            'cookiefile': COOKIE_FILE
+            'cookiefile': cookie_file
         }
 
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([url])
+        # 🔥 TRY WITH COOKIE
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([url])
+
+        # 🔥 FALLBACK WITHOUT COOKIE
+        except:
+            ydl_opts.pop('cookiefile', None)
+
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([url])
 
         delete_file_later(filepath)
 
@@ -93,7 +108,7 @@ def download():
         return jsonify({"error": str(e)}), 500
 
 
-# 📦 FILE SERVE
+# 📦 SERVE FILE
 @app.route('/file/<file_id>')
 def serve_file(file_id):
     path = os.path.join(DOWNLOAD_DIR, f"{file_id}.mp4")
