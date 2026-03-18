@@ -29,15 +29,24 @@ def home():
 def info():
     url = request.args.get('url')
 
-    with yt_dlp.YoutubeDL({'quiet': True}) as ydl:
-        info = ydl.extract_info(url, download=False)
+    try:
+        ydl_opts = {
+            'quiet': True,
+            'skip_download': True,
+            'extract_flat': True  # 🔥 FAST FIX
+        }
 
-    return jsonify({
-        "title": info.get("title"),
-        "thumbnail": info.get("thumbnail"),
-        "author": info.get("uploader")
-    })
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            data = ydl.extract_info(url, download=False)
 
+        return jsonify({
+            "title": data.get("title"),
+            "thumbnail": data.get("thumbnail"),
+            "author": data.get("uploader")
+        })
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 # 📥 DOWNLOAD (SIMPLE + STABLE)
 @app.route('/download')
 def download():
