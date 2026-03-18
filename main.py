@@ -50,7 +50,7 @@ def download():
 
         ydl_opts = {
             'outtmpl': filepath,
-            'format': 'best',  # 🔥 NO MERGE = NO FFMPEG
+            'format': 'bestvideo+bestaudio/best'            
             'quiet': True,
         }
 
