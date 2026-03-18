@@ -70,11 +70,9 @@ else:
     format_str = "best"
     
     ydl_opts = {
-        'outtmpl': filepath,
-        'format': format_str,
-        'merge_output_format': 'mp4',
         'quiet': True,
-        'concurrent_fragment_downloads': 5
+    'no_warnings': True,
+    'extract_flat': True,
     }
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
