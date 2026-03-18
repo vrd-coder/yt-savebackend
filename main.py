@@ -20,18 +20,12 @@ def get_info():
         ydl_opts = {
             'quiet': True,
             'no_warnings': True,
-            'extract_flat': False,
-            # Bypass bot detection
             'http_headers': {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                'Accept-Language': 'en-us,en;q=0.5',
-                'Sec-Fetch-Mode': 'navigate',
             },
             'extractor_args': {
                 'youtube': {
-                    'player_client': ['android', 'web'],
-                    'player_skip': ['webpage', 'config', 'js'],
+                    'player_client': ['android'],
                 }
             },
         }
@@ -39,34 +33,57 @@ def get_info():
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
 
-        # Get video formats (with both video+audio)
-        formats = []
-        seen = set()
-        for f in info.get('formats', []):
-            if f.get('vcodec') != 'none' and f.get('acodec') != 'none':
-                quality = f.get('format_note') or f.get('quality') or 'unknown'
-                if quality not in seen and f.get('url'):
-                    seen.add(quality)
-                    formats.append({
-                        'quality': quality,
+        all_formats = info.get('formats', [])
+
+        # Get combined video+audio formats
+        combined = []
+        for f in all_formats:
+            if (f.get('vcodec', 'none') != 'none' and
+                f.get('acodec', 'none') != 'none' and
+                f.get('url')):
+                combined.append({
+                    'quality': f.get('format_note') or f.get('height') or 'SD',
+                    'url': f.get('url'),
+                    'ext': f.get('ext', 'mp4'),
+                })
+
+        # If no combined formats, get best video-only formats
+        if not combined:
+            seen_heights = set()
+            for f in all_formats:
+                h = f.get('height')
+                if (f.get('vcodec', 'none') != 'none' and
+                    f.get('url') and h and h not in seen_heights):
+                    seen_heights.add(h)
+                    combined.append({
+                        'quality': f'{h}p',
                         'url': f.get('url'),
                         'ext': f.get('ext', 'mp4'),
-                        'filesize': f.get('filesize'),
                     })
 
-        # Get best audio
+        # Get best audio URL
         audio_url = None
-        for f in info.get('formats', []):
-            if f.get('acodec') != 'none' and f.get('vcodec') == 'none' and f.get('url'):
+        for f in all_formats:
+            if (f.get('acodec', 'none') != 'none' and
+                f.get('vcodec', 'none') == 'none' and
+                f.get('url')):
                 audio_url = f.get('url')
                 break
+
+        # Fallback — use direct URL if available
+        if not combined and info.get('url'):
+            combined.append({
+                'quality': 'Best',
+                'url': info.get('url'),
+                'ext': 'mp4',
+            })
 
         return jsonify({
             'title': info.get('title', 'YouTube Video'),
             'thumbnail': info.get('thumbnail', ''),
             'duration': info.get('duration', 0),
             'author': info.get('uploader', ''),
-            'formats': formats[-6:],
+            'formats': combined[-6:],
             'audio_url': audio_url,
         })
 
@@ -76,4 +93,4 @@ def get_info():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
-    
+                
