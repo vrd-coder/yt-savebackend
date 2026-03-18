@@ -13,10 +13,10 @@ CORS(app)
 DOWNLOAD_DIR = "downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
-# 🔥 MULTIPLE COOKIES
+# 🔥 YOUR 2 COOKIES
 COOKIE_FILES = [
     "cookies.txt",
-    "cookies2.txt",
+    "cookies2.txt"
 ]
 
 # 🧹 AUTO DELETE
@@ -33,7 +33,7 @@ def home():
     return jsonify({"status": "YTSave API running 🚀"})
 
 
-# 🎯 INFO
+# 🎯 FAST INFO (NO COOKIE)
 @app.route('/info')
 def info():
     url = request.args.get('url')
@@ -42,15 +42,10 @@ def info():
         if "shorts" in url:
             url = url.replace("shorts/", "watch?v=")
 
-        cookie_file = random.choice(COOKIE_FILES)
-
         ydl_opts = {
-        'outtmpl': filepath,
-        'format': 'bestvideo*+bestaudio/best',
-        'merge_output_format': 'mp4',
-        'quiet': True,
-        'cookiefile': cookie_file
-}
+            'quiet': True,
+            'skip_download': True,
+            'extract_flat': True
         }
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -66,7 +61,7 @@ def info():
         return jsonify({"error": str(e)}), 500
 
 
-# 📥 DOWNLOAD
+# 📥 DOWNLOAD (ROTATOR + FALLBACK + SAFE FORMAT)
 @app.route('/download')
 def download():
     url = request.args.get('url')
@@ -82,7 +77,7 @@ def download():
 
         ydl_opts = {
             'outtmpl': filepath,
-            'format': 'bv*+ba/best',
+            'format': 'bestvideo*+bestaudio/best',
             'merge_output_format': 'mp4',
             'quiet': True,
             'cookiefile': cookie_file
