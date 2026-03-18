@@ -12,28 +12,38 @@ CORS(app)
 DOWNLOAD_DIR = "downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
-# 🧹 AUTO DELETE FILE
+# 🍪 COOKIE FILE
+COOKIE_FILE = os.path.join(os.path.dirname(__file__), "cookies.txt")
+
+# 🧹 AUTO DELETE
 def delete_file_later(path):
     def task():
-        time.sleep(600)  # 10 min
+        time.sleep(600)
         if os.path.exists(path):
             os.remove(path)
     threading.Thread(target=task).start()
+
 
 @app.route('/')
 def home():
     return jsonify({"status": "YTSave API running 🚀"})
 
-# 🎯 FAST VIDEO INFO (NO LAG)
+
+# 🎯 FAST INFO
 @app.route('/info')
 def info():
     url = request.args.get('url')
 
     try:
+        # 🔥 shorts fix
+        if "shorts" in url:
+            url = url.replace("shorts/", "watch?v=")
+
         ydl_opts = {
             'quiet': True,
             'skip_download': True,
-            'extract_flat': True  # ⚡ fast
+            'extract_flat': True,
+            'cookiefile': COOKIE_FILE
         }
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -49,23 +59,27 @@ def info():
         return jsonify({"error": str(e)}), 500
 
 
-# 📥 DOWNLOAD (SAFE HD + FALLBACK)
+# 📥 DOWNLOAD
 @app.route('/download')
 def download():
     url = request.args.get('url')
 
-    file_id = str(uuid.uuid4())
-    filepath = os.path.join(DOWNLOAD_DIR, f"{file_id}.mp4")
-
-    ydl_opts = {
-        'outtmpl': filepath,
-        # 🔥 SAFEST HD FORMAT
-        'format': 'bestvideo+bestaudio/best',
-        'merge_output_format': 'mp4',
-        'quiet': True
-    }
-
     try:
+        # 🔥 shorts fix
+        if "shorts" in url:
+            url = url.replace("shorts/", "watch?v=")
+
+        file_id = str(uuid.uuid4())
+        filepath = os.path.join(DOWNLOAD_DIR, f"{file_id}.mp4")
+
+        ydl_opts = {
+            'outtmpl': filepath,
+            'format': 'bestvideo+bestaudio/best',
+            'merge_output_format': 'mp4',
+            'quiet': True,
+            'cookiefile': COOKIE_FILE
+        }
+
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])
 
