@@ -65,7 +65,7 @@ def download():
     filepath = os.path.join(DOWNLOAD_DIR, f"{file_id}.mp4")
 
     if quality:
-        format_str = f"bestvideo[height<={quality}]+bestaudio/best"
+        format_str = f"bestvideo[height<={quality}]+bestaudio/best[height<={quality}]"
     else:
         format_str = "bestvideo+bestaudio/best"
 
