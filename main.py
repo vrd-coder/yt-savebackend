@@ -29,13 +29,13 @@ def home():
     return jsonify({"status": "YTSave API running 🚀"})
 
 
-# 🎯 FAST INFO
+# 🎯 INFO (FAST)
 @app.route('/info')
 def info():
     url = request.args.get('url')
 
     try:
-        # 🔥 shorts fix
+        # shorts fix
         if "shorts" in url:
             url = url.replace("shorts/", "watch?v=")
 
@@ -59,13 +59,13 @@ def info():
         return jsonify({"error": str(e)}), 500
 
 
-# 📥 DOWNLOAD
+# 📥 DOWNLOAD (FINAL FIXED)
 @app.route('/download')
 def download():
     url = request.args.get('url')
 
     try:
-        # 🔥 shorts fix
+        # shorts fix
         if "shorts" in url:
             url = url.replace("shorts/", "watch?v=")
 
@@ -74,7 +74,7 @@ def download():
 
         ydl_opts = {
             'outtmpl': filepath,
-            'format': 'bestvideo+bestaudio/best',
+            'format': 'bv*+ba/best',   # 🔥 FINAL FIX
             'merge_output_format': 'mp4',
             'quiet': True,
             'cookiefile': COOKIE_FILE
@@ -93,7 +93,7 @@ def download():
         return jsonify({"error": str(e)}), 500
 
 
-# 📦 SERVE FILE
+# 📦 FILE SERVE
 @app.route('/file/<file_id>')
 def serve_file(file_id):
     path = os.path.join(DOWNLOAD_DIR, f"{file_id}.mp4")
