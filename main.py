@@ -12,7 +12,6 @@ CORS(app)
 DOWNLOAD_DIR = "downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
-
 # 🧹 AUTO DELETE
 def delete_file_later(path):
     def task():
@@ -21,13 +20,11 @@ def delete_file_later(path):
             os.remove(path)
     threading.Thread(target=task).start()
 
-
 @app.route('/')
 def home():
-    return jsonify({"status": "YTSave PRO API 🚀"})
+    return jsonify({"status": "YTSave API running 🚀"})
 
-
-# 🎯 VIDEO INFO + FORMATS
+# 🎯 VIDEO INFO
 @app.route('/info')
 def info():
     url = request.args.get('url')
@@ -35,44 +32,24 @@ def info():
     with yt_dlp.YoutubeDL({'quiet': True}) as ydl:
         info = ydl.extract_info(url, download=False)
 
-    formats = []
-
-    for f in info.get('formats', []):
-        if f.get('vcodec') != 'none' and f.get('height'):
-            formats.append({
-                "quality": f"{f.get('height')}p",
-                "height": f.get('height')
-            })
-
-    # unique + sorted
-    formats = sorted({f['height']: f for f in formats}.values(), key=lambda x: x['height'])
-
     return jsonify({
         "title": info.get("title"),
         "thumbnail": info.get("thumbnail"),
-        "author": info.get("uploader"),
-        "formats": formats[-5:]  # best qualities
+        "author": info.get("uploader")
     })
 
-
-# 📥 DOWNLOAD
+# 📥 DOWNLOAD (SIMPLE + STABLE)
 @app.route('/download')
 def download():
     url = request.args.get('url')
-    quality = request.args.get('quality')
 
     file_id = str(uuid.uuid4())
     filepath = os.path.join(DOWNLOAD_DIR, f"{file_id}.mp4")
 
-    if quality:
-    format_str = f"best[height<={quality}]"
-else:
-    format_str = "best"
-    
     ydl_opts = {
-        'quiet': True,
-    'no_warnings': True,
-    'extract_flat': True,
+        'outtmpl': filepath,
+        'format': 'best',   # 🔥 SIMPLE (no ffmpeg issue)
+        'quiet': True
     }
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -84,7 +61,6 @@ else:
         "download_url": f"/file/{file_id}"
     })
 
-
 # 📦 SERVE FILE
 @app.route('/file/<file_id>')
 def serve_file(file_id):
@@ -94,7 +70,6 @@ def serve_file(file_id):
         return jsonify({"error": "File expired"}), 404
 
     return send_file(path, as_attachment=True)
-
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
