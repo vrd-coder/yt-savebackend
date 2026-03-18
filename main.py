@@ -8,7 +8,6 @@ import tempfile
 app = Flask(__name__)
 CORS(app)
 
-# Cookies file path
 COOKIES_FILE = os.path.join(os.path.dirname(__file__), 'www.youtube.com_cookies.txt')
 
 @app.route('/')
@@ -30,7 +29,6 @@ def get_info():
             },
         }
 
-        # Use cookies if available
         if os.path.exists(COOKIES_FILE):
             ydl_opts['cookiefile'] = COOKIES_FILE
 
@@ -39,7 +37,7 @@ def get_info():
 
         all_formats = info.get('formats', [])
 
-        # Combined formats (video+audio)
+        # Combined video+audio formats
         combined = {}
         for f in all_formats:
             if (f.get('vcodec', 'none') != 'none' and
@@ -68,15 +66,14 @@ def get_info():
                     best_abr = abr
                     audio_url = f.get('url')
 
-        # Video-only formats for 720p/1080p
+        # Video-only for 720p/1080p merge
         if audio_url:
             for f in all_formats:
                 if (f.get('vcodec', 'none') != 'none' and
                     f.get('acodec', 'none') == 'none' and
                     f.get('url')):
                     h = f.get('height') or 0
-                    ext = f.get('ext', 'mp4')
-                    if h >= 720 and h not in combined and ext in ['mp4', 'webm']:
+                    if h >= 720 and h not in combined:
                         q = f.get('format_note') or (str(h)+'p' if h else 'HD')
                         combined[h] = {
                             'quality': q,
@@ -89,8 +86,11 @@ def get_info():
 
         formats = sorted(combined.values(), key=lambda x: x.get('height', 0))
 
-        if not formats and info.get('url'):
-            formats = [{'quality': 'Best', 'url': info.get('url'), 'ext': 'mp4', 'needs_merge': False}]
+        # Fallback - use best available format directly
+        if not formats:
+            best_url = info.get('url', '')
+            if best_url:
+                formats = [{'quality': 'Best', 'url': best_url, 'ext': 'mp4', 'needs_merge': False}]
 
         return jsonify({
             'title': info.get('title', 'YouTube Video'),
@@ -128,7 +128,7 @@ def merge_video():
             ]
             result = subprocess.run(cmd, capture_output=True, timeout=120)
             if result.returncode != 0:
-                return jsonify({"error": "Merge failed: " + result.stderr.decode()}), 500
+                return jsonify({"error": "Merge failed"}), 500
 
             filename = title.replace(' ', '_')[:50] + '.mp4'
             with open(out_path, 'rb') as f:
@@ -143,7 +143,7 @@ def merge_video():
                 }
             )
     except subprocess.TimeoutExpired:
-        return jsonify({"error": "Timeout — video too long"}), 500
+        return jsonify({"error": "Timeout"}), 500
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
