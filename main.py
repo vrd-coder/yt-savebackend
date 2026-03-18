@@ -12,7 +12,7 @@ CORS(app)
 DOWNLOAD_DIR = "downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
-# 🧹 AUTO DELETE
+# 🧹 AUTO DELETE FILE
 def delete_file_later(path):
     def task():
         time.sleep(600)  # 10 min
@@ -24,7 +24,7 @@ def delete_file_later(path):
 def home():
     return jsonify({"status": "YTSave API running 🚀"})
 
-# 🎯 VIDEO INFO
+# 🎯 FAST VIDEO INFO (NO LAG)
 @app.route('/info')
 def info():
     url = request.args.get('url')
@@ -33,7 +33,7 @@ def info():
         ydl_opts = {
             'quiet': True,
             'skip_download': True,
-            'extract_flat': True  # 🔥 FAST FIX
+            'extract_flat': True  # ⚡ fast
         }
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -47,7 +47,9 @@ def info():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-# 📥 DOWNLOAD (SIMPLE + STABLE)
+
+
+# 📥 DOWNLOAD (SAFE HD + FALLBACK)
 @app.route('/download')
 def download():
     url = request.args.get('url')
@@ -57,18 +59,25 @@ def download():
 
     ydl_opts = {
         'outtmpl': filepath,
-        'format': 'best',   # 🔥 SIMPLE (no ffmpeg issue)
+        # 🔥 SAFEST HD FORMAT
+        'format': 'bestvideo[height<=1080]+bestaudio/best',
+        'merge_output_format': 'mp4',
         'quiet': True
     }
 
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        ydl.download([url])
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
 
-    delete_file_later(filepath)
+        delete_file_later(filepath)
 
-    return jsonify({
-        "download_url": f"/file/{file_id}"
-    })
+        return jsonify({
+            "download_url": f"/file/{file_id}"
+        })
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 # 📦 SERVE FILE
 @app.route('/file/<file_id>')
@@ -79,6 +88,7 @@ def serve_file(file_id):
         return jsonify({"error": "File expired"}), 404
 
     return send_file(path, as_attachment=True)
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
