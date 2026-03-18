@@ -45,10 +45,12 @@ def info():
         cookie_file = random.choice(COOKIE_FILES)
 
         ydl_opts = {
-            'quiet': True,
-            'skip_download': True,
-            'extract_flat': True,
-            'cookiefile': cookie_file
+        'outtmpl': filepath,
+        'format': 'bestvideo*+bestaudio/best',
+        'merge_output_format': 'mp4',
+        'quiet': True,
+        'cookiefile': cookie_file
+}
         }
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
