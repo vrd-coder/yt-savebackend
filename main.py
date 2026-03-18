@@ -4,7 +4,6 @@ import yt_dlp
 import os
 import subprocess
 import tempfile
-import threading
 
 app = Flask(__name__)
 CORS(app)
@@ -28,7 +27,7 @@ def get_info():
             },
             'extractor_args': {
                 'youtube': {
-                    'player_client': ['web', 'android'],
+                    'player_client': ['android', 'web'],
                 }
             },
         }
@@ -38,7 +37,7 @@ def get_info():
 
         all_formats = info.get('formats', [])
 
-        # Combined formats (have both video+audio)
+        # 1. Combined formats (video+audio) — direct download
         combined = {}
         for f in all_formats:
             if (f.get('vcodec', 'none') != 'none' and
@@ -50,33 +49,13 @@ def get_info():
                     combined[h] = {
                         'quality': q,
                         'url': f.get('url'),
-                        'ext': f.get('ext', 'mp4'),
+                        'ext': 'mp4',
                         'height': h,
                         'needs_merge': False,
                     }
 
-        # Video-only formats for 1080p+ (needs merge)
-        video_only = {}
-        for f in all_formats:
-            if (f.get('vcodec', 'none') != 'none' and
-                f.get('acodec', 'none') == 'none' and
-                f.get('url') and
-                f.get('ext') == 'mp4'):
-                h = f.get('height') or 0
-                if h >= 1080 and h not in combined:
-                    q = f.get('format_note') or (str(h)+'p' if h else 'HD')
-                    video_only[h] = {
-                        'quality': q,
-                        'video_url': f.get('url'),
-                        'ext': 'mp4',
-                        'height': h,
-                        'needs_merge': True,
-                        'format_id': f.get('format_id'),
-                    }
-
-        # Best audio url
+        # 2. Best audio format
         audio_url = None
-        audio_format_url = None
         best_abr = 0
         for f in all_formats:
             if (f.get('acodec', 'none') != 'none' and
@@ -86,12 +65,25 @@ def get_info():
                 if abr > best_abr:
                     best_abr = abr
                     audio_url = f.get('url')
-                    audio_format_url = f.get('url')
 
-        # Add video_only with audio url for merge
-        for h, fmt in video_only.items():
-            fmt['audio_url'] = audio_format_url
-            combined[h] = fmt
+        # 3. Video-only formats for 720p/1080p — needs merge
+        if audio_url:
+            for f in all_formats:
+                if (f.get('vcodec', 'none') != 'none' and
+                    f.get('acodec', 'none') == 'none' and
+                    f.get('url')):
+                    h = f.get('height') or 0
+                    ext = f.get('ext', 'mp4')
+                    if h >= 720 and h not in combined and ext in ['mp4', 'webm']:
+                        q = f.get('format_note') or (str(h)+'p' if h else 'HD')
+                        combined[h] = {
+                            'quality': q,
+                            'video_url': f.get('url'),
+                            'audio_url': audio_url,
+                            'ext': 'mp4',
+                            'height': h,
+                            'needs_merge': True,
+                        }
 
         formats = sorted(combined.values(), key=lambda x: x.get('height', 0))
 
@@ -114,7 +106,6 @@ def get_info():
 
 @app.route('/merge')
 def merge_video():
-    """Merge video+audio for 1080p using ffmpeg"""
     video_url = request.args.get('video_url')
     audio_url = request.args.get('audio_url')
     title     = request.args.get('title', 'video')
@@ -123,12 +114,6 @@ def merge_video():
         return jsonify({"error": "video_url and audio_url required"}), 400
 
     try:
-        # Check ffmpeg available
-        subprocess.run(['ffmpeg', '-version'], capture_output=True, check=True)
-    except:
-        return jsonify({"error": "ffmpeg not available"}), 500
-
-    def generate():
         with tempfile.TemporaryDirectory() as tmpdir:
             out_path = os.path.join(tmpdir, 'output.mp4')
             cmd = [
@@ -140,17 +125,26 @@ def merge_video():
                 '-movflags', 'faststart',
                 out_path
             ]
-            subprocess.run(cmd, capture_output=True)
-            with open(out_path, 'rb') as f:
-                while chunk := f.read(8192):
-                    yield chunk
+            result = subprocess.run(cmd, capture_output=True, timeout=120)
+            if result.returncode != 0:
+                return jsonify({"error": "Merge failed"}), 500
 
-    filename = title.replace(' ', '_')[:50] + '_1080p.mp4'
-    return Response(
-        generate(),
-        mimetype='video/mp4',
-        headers={'Content-Disposition': f'attachment; filename="{filename}"'}
-    )
+            filename = title.replace(' ', '_')[:50] + '.mp4'
+            with open(out_path, 'rb') as f:
+                data = f.read()
+
+            return Response(
+                data,
+                mimetype='video/mp4',
+                headers={
+                    'Content-Disposition': f'attachment; filename="{filename}"',
+                    'Content-Length': str(len(data))
+                }
+            )
+    except subprocess.TimeoutExpired:
+        return jsonify({"error": "Merge timeout — video too long"}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == '__main__':
