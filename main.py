@@ -50,7 +50,7 @@ def download():
 
         ydl_opts = {
             'outtmpl': filepath,
-            'format': 'bestvideo+bestaudio/best'            
+            'format': 'bestvideo+bestaudio/best',            
             'quiet': True,
         }
 
